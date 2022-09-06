@@ -2,6 +2,7 @@ site_name: Servidor de Desafios
 
 nav:
   - Home: index.md
-  - Usuário: user.md
+  - Aluno: student.md
+  - Professor: teacher.md
   - Desenvovedor: developer.md
   - Sobre: about.md
