@@ -50,9 +50,13 @@ def get_quizes(user):
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     if user == 'admin' or user == 'fabioja':
-        cursor.execute("SELECT id, numb from QUIZ".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        cursor.execute("SELECT id, numb from QUIZ".
+        format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
     else:
-        cursor.execute("SELECT id, numb from QUIZ where release < '{0}'".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        cursor.execute("SELECT id, numb from QUIZ where release < '{0}'"
+        .format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
     info = [reg for reg in cursor.fetchall()]
     conn.close()
     return info
@@ -70,10 +74,9 @@ def set_user_quiz(userid, quizid, sent, answer, result):
     """Function set user quiz."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
-    #print("insert into USERQUIZ(userid,quizid,sent,answer,result) values ('{0}',{1},'{2}','{3}','{4}');".format(userid, quizid, sent, answer, result))
-    #cursor.execute("insert into USERQUIZ(userid,quizid,sent,answer,result) values ('{0}',{1},'{2}','{3}','{4}');".format(userid, quizid, sent, answer, result))
-    cursor.execute("insert into USERQUIZ(userid,quizid,sent,answer,result) values (?,?,?,?,?);", (userid, quizid, sent, answer, result))
-    #
+    cursor.execute("insert into USERQUIZ(userid,quizid,sent,answer,result) values (?,?,?,?,?);",
+    (userid, quizid, sent, answer, result)
+    )
     conn.commit()
     conn.close()
 
@@ -82,9 +85,13 @@ def get_quiz(id, user):
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     if user in ('admin','fabioja'):
-        cursor.execute("SELECT id, release, expire, problem, tests, results, diagnosis, numb from QUIZ where id = {0}".format(id))
+        cursor.execute("SELECT id, release, expire, problem, tests,results, diagnosis, numb from QUIZ where id = {0}"
+        .format(id)
+        )
     else:
-        cursor.execute("SELECT id, release, expire, problem, tests, results, diagnosis, numb from QUIZ where id = {0} and release < '{1}'".format(id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        cursor.execute("SELECT id, release, expire, problem, tests, results, diagnosis, numb from QUIZ where id = {0} and release < '{1}'"
+        .format(id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
     info = [reg for reg in cursor.fetchall()]
     conn.close()
     return info
@@ -106,9 +113,8 @@ def get_info(user):
     info = [reg[0] for reg in cursor.fetchall()]
     conn.close()
     if len(info) == 0:
-        return None
-    else:
-        return info[0]
+        return None 
+    return info[0]
 
 auth = HTTPBasicAuth()
 
@@ -130,9 +136,8 @@ def main():
         if len(quiz) == 0:
             msg = "Boa tentativa, mas não vai dar certo!"
             p_n = 2
-            return render_template('index.html', username=auth.username(), challenges=challenges, p_n=p_n, msg=msg)
-
-        
+            return render_template('index.html', username=auth.username(),
+            challenges=challenges, p_n=p_n, msg=msg)      
         quiz = quiz[0]
         if sent > quiz[2]:
             msg = "Sorry... Prazo expirado!"       
@@ -142,11 +147,15 @@ def main():
         with open(filename,'r', encoding='utf8') as f_p:
             answer = f_p.read()       
         #lamb = boto3.client('lambda')
-        args = {"ndes": id_, "code": answer, "args": literal_eval(quiz[4]), "resp": literal_eval(quiz[5]), "diag": literal_eval(quiz[6])}
-        #response = lamb.invoke(FunctionName="Teste", InvocationType='RequestResponse', Payload=json.dumps(args))
+        args = {"ndes": id_, "code": answer, "args": literal_eval(quiz[4]),
+        "resp": literal_eval(quiz[5]),
+        "diag": literal_eval(quiz[6])
+        }
+        #response = lamb.invoke(FunctionName="Teste", InvocationType='RequestResponse',
+        #Payload=json.dumps(args))
         #feedback = response['Payload'].read()
         #feedback = json.loads(feedback).replace('"','')
-        feedback = lambda_handler(args,'')
+        feedback = lambda_handler(args)
 
         result = 'Erro'
         if len(feedback) == 0:
@@ -165,20 +174,25 @@ def main():
     if len(challenges) == 0:
         msg = "Ainda não há desafios! Volte mais tarde."
         p_n = 2
-        username=auth.username()
-        return render_template('index.html', username, challenges=challenges, p=p, msg=msg)
+        return render_template('index.html', username=auth.username(),
+        challenges=challenges, p_n=p_n, msg=msg
+        )
 
     quiz = get_quiz(id, auth.username())
 
     if len(quiz) == 0:
         msg = "Oops... Desafio invalido!"
         p_n = 2
-        username=auth.username()
-        return render_template('index.html',username, challenges=challenges, p=p_n, msg=msg)
+        return render_template('index.html',username=auth.username(),
+        challenges=challenges, p_n=p_n, msg=msg
+        )
 
     answers = get_user_quiz(auth.username(), id)
-    username=auth.username()
-    return render_template('index.html', username, challenges=challenges, quiz=quiz[0], e=(sent > quiz[0][2]), answers=answers, p=p_n, msg=msg, expi = converte_data(quiz[0][2]))
+    return render_template('index.html', username=auth.username(),
+    challenges=challenges, quiz=quiz[0],
+    e=(sent > quiz[0][2]), answers=answers,
+    p_n=p_n, msg=msg, expi = converte_data(quiz[0][2])
+    )
 
 @app.route('/pass', methods=['GET', 'POST'])
 @auth.login_required
@@ -205,7 +219,11 @@ def change():
         msg = ''
         points = 3
 
-    return render_template('index.html', username=auth.username(), challenges=get_quizes(auth.username()), points=points, msg=msg)
+    return render_template(
+        'index.html', username=auth.username(),
+        challenges=get_quizes(auth.username()),
+        points=points, msg=msg
+    )
 
 
 @app.route('/logout')
