@@ -4,48 +4,43 @@ Created on Wed Jun 28 09:00:39 2017
 
 @author: rauli
 """
-
-from flask import Flask, request, jsonify, abort, make_response, session, render_template
-from flask_httpauth import HTTPBasicAuth
 from datetime import datetime
 import sqlite3
-import json
 import hashlib
+from ast import literal_eval
+from flask import Flask, request,render_template
+from flask_httpauth import HTTPBasicAuth
+import numbers  
+
 
 DBNAME = './quiz.db'
 
-def lambda_handler(event, context):
+def lambda_handler(event):
     try:
-        import json 
-        import numbers
-        
         def not_equals(first, second):
             if isinstance(first, numbers.Number) and isinstance(second, numbers.Number):
                 return abs(first - second) > 1e-3
             return first != second
-        
-        # TODO implement
+        #TO DO implement
         ndes = int(event['ndes'])
         code = event['code']
         args = event['args']
         resp = event['resp']
-        diag = event['diag'] 
-        exec(code, locals())
-        
-        
+        diag = event['diag']
+        exec(code, locals())              
         test = []
         for index, arg in enumerate(args):
             if not 'desafio{0}'.format(ndes) in locals():
-                return "Nome da função inválido. Usar 'def desafio{0}(...)'".format(ndes)
-            
-            if not_equals(eval('desafio{0}(*arg)'.format(ndes)), resp[index]):
+                return "Nome da função inválido. Usar 'def desafio{0}(...)'".format(ndes)            
+            if not_equals(literal_eval('desafio{0}(*arg)'.format(ndes)), resp[index]):
                 test.append(diag[index])
 
         return " ".join(test)
     except:
         return "Função inválida."
 
-def converteData(orig):
+
+def converte_Data(orig):
     return orig[8:10]+'/'+orig[5:7]+'/'+orig[0:4]+' '+orig[11:13]+':'+orig[14:16]+':'+orig[17:]
 
 def getQuizes(user):
@@ -80,7 +75,7 @@ def setUserQuiz(userid, quizid, sent, answer, result):
 def getQuiz(id, user):
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
-    if user == 'admin' or user == 'fabioja':
+    if user in ('admin','fabioja'):
         cursor.execute("SELECT id, release, expire, problem, tests, results, diagnosis, numb from QUIZ where id = {0}".format(id))
     else:
         cursor.execute("SELECT id, release, expire, problem, tests, results, diagnosis, numb from QUIZ where id = {0} and release < '{1}'".format(id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
@@ -116,37 +111,36 @@ app.secret_key = 'A0Zr98j/3yX R~XHH!jmN]LWX/,?TX'
 @auth.login_required
 def main():
     msg = ''
-    p = 1
+    p_n = 1
     challenges=getQuizes(auth.username())
     sent = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if request.method == 'POST' and 'ID' in request.args:
-        id = request.args.get('ID')
-        quiz = getQuiz(id, auth.username())
+        id_ = request.args.get('ID')
+        quiz = getQuiz(id_, auth.username())
         if len(quiz) == 0:
             msg = "Boa tentativa, mas não vai dar certo!"
-            p = 2
-            return render_template('index.html', username=auth.username(), challenges=challenges, p=p, msg=msg)
+            p_n = 2
+            return render_template('index.html', username=auth.username(), challenges=challenges, p_n=p_n, msg=msg)
 
         
         quiz = quiz[0]
         if sent > quiz[2]:
             msg = "Sorry... Prazo expirado!"
-        
-        f = request.files['code']
+       
+        request_file = request.files['code']
         filename = './upload/{0}-{1}.py'.format(auth.username(), sent)
-        f.save(filename)
-        with open(filename,'r') as fp:
-            answer = fp.read()
-        
+        request_file.save(filename)
+        with open(filename,'r', encoding='utf8') as f_p:
+            answer = f_p.read()
+       
         #lamb = boto3.client('lambda')
-        args = {"ndes": id, "code": answer, "args": eval(quiz[4]), "resp": eval(quiz[5]), "diag": eval(quiz[6]) }
+        args = {"ndes": id_, "code": answer, "args": literal_eval(quiz[4]), "resp": literal_eval(quiz[5]), "diag": literal_eval(quiz[6]) }
 
         #response = lamb.invoke(FunctionName="Teste", InvocationType='RequestResponse', Payload=json.dumps(args))
         #feedback = response['Payload'].read()
         #feedback = json.loads(feedback).replace('"','')
         feedback = lambda_handler(args,'')
-
 
         result = 'Erro'
         if len(feedback) == 0:
@@ -158,25 +152,27 @@ def main():
 
     if request.method == 'GET':
         if 'ID' in request.args:
-            id = request.args.get('ID')
+            id_ = request.args.get('ID')
         else:
-            id = 1
+            id_ = 1
 
     if len(challenges) == 0:
         msg = "Ainda não há desafios! Volte mais tarde."
-        p = 2
-        return render_template('index.html', username=auth.username(), challenges=challenges, p=p, msg=msg)
-    else:
-        quiz = getQuiz(id, auth.username())
+        p_n = 2
+        username=auth.username()
+        return render_template('index.html', username, challenges=challenges, p=p, msg=msg)
 
-        if len(quiz) == 0:
-            msg = "Oops... Desafio invalido!"
-            p = 2
-            return render_template('index.html', username=auth.username(), challenges=challenges, p=p, msg=msg)
+    quiz = getQuiz(id, auth.username())
 
-        answers = getUserQuiz(auth.username(), id)
-    
-    return render_template('index.html', username=auth.username(), challenges=challenges, quiz=quiz[0], e=(sent > quiz[0][2]), answers=answers, p=p, msg=msg, expi = converteData(quiz[0][2]))
+    if len(quiz) == 0:
+        msg = "Oops... Desafio invalido!"
+        p_n = 2
+        username=auth.username()
+        return render_template('index.html',username, challenges=challenges, p=p_n, msg=msg)
+
+    answers = getUserQuiz(auth.username(), id)
+    username=auth.username()
+    return render_template('index.html', username, challenges=challenges, quiz=quiz[0], e=(sent > quiz[0][2]), answers=answers, p=p_n, msg=msg, expi = converteData(quiz[0][2]))
 
 @app.route('/pass', methods=['GET', 'POST'])
 @auth.login_required
