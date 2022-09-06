@@ -16,6 +16,7 @@ import numbers
 DBNAME = './quiz.db'
 
 def lambda_handler(event):
+    """Function lambda handler."""
     try:
         def not_equals(first, second):
             if isinstance(first, numbers.Number) and isinstance(second, numbers.Number):
@@ -40,10 +41,12 @@ def lambda_handler(event):
         return "Função inválida."
 
 
-def converte_Data(orig):
+def converte_data(orig):
+    """Function convert data."""
     return orig[8:10]+'/'+orig[5:7]+'/'+orig[0:4]+' '+orig[11:13]+':'+orig[14:16]+':'+orig[17:]
 
-def getQuizes(user):
+def get_quizes(user):
+    """Function get quizes."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     if user == 'admin' or user == 'fabioja':
@@ -54,7 +57,8 @@ def getQuizes(user):
     conn.close()
     return info
 
-def getUserQuiz(userid, quizid):
+def get_user_quiz(userid, quizid):
+    """Function get user quiz."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     cursor.execute("SELECT sent,answer,result from USERQUIZ where userid = '{0}' and quizid = {1} order by sent desc".format(userid, quizid))
@@ -62,7 +66,8 @@ def getUserQuiz(userid, quizid):
     conn.close()
     return info
 
-def setUserQuiz(userid, quizid, sent, answer, result):
+def set_user_quiz(userid, quizid, sent, answer, result):
+    """Function set user quiz."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     #print("insert into USERQUIZ(userid,quizid,sent,answer,result) values ('{0}',{1},'{2}','{3}','{4}');".format(userid, quizid, sent, answer, result))
@@ -72,7 +77,8 @@ def setUserQuiz(userid, quizid, sent, answer, result):
     conn.commit()
     conn.close()
 
-def getQuiz(id, user):
+def get_quiz(id, user):
+    """Function get quiz."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     if user in ('admin','fabioja'):
@@ -83,14 +89,16 @@ def getQuiz(id, user):
     conn.close()
     return info
 
-def setInfo(pwd, user):
+def set_info(pwd, user):
+    """Function set info."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     cursor.execute("UPDATE USER set pass = ? where user = ?",(pwd, user))
     conn.commit()
     conn.close()
 
-def getInfo(user):
+def get_info(user):
+    """Function get info."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     cursor.execute("SELECT pass, type from USER where user = '{0}'".format(user))
@@ -110,14 +118,15 @@ app.secret_key = 'A0Zr98j/3yX R~XHH!jmN]LWX/,?TX'
 @app.route('/', methods=['GET', 'POST'])
 @auth.login_required
 def main():
+    """Function main."""
     msg = ''
     p_n = 1
-    challenges=getQuizes(auth.username())
+    challenges=get_quizes(auth.username())
     sent = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if request.method == 'POST' and 'ID' in request.args:
         id_ = request.args.get('ID')
-        quiz = getQuiz(id_, auth.username())
+        quiz = get_quiz(id_, auth.username())
         if len(quiz) == 0:
             msg = "Boa tentativa, mas não vai dar certo!"
             p_n = 2
@@ -126,17 +135,14 @@ def main():
         
         quiz = quiz[0]
         if sent > quiz[2]:
-            msg = "Sorry... Prazo expirado!"
-       
+            msg = "Sorry... Prazo expirado!"       
         request_file = request.files['code']
         filename = './upload/{0}-{1}.py'.format(auth.username(), sent)
         request_file.save(filename)
         with open(filename,'r', encoding='utf8') as f_p:
-            answer = f_p.read()
-       
+            answer = f_p.read()       
         #lamb = boto3.client('lambda')
-        args = {"ndes": id_, "code": answer, "args": literal_eval(quiz[4]), "resp": literal_eval(quiz[5]), "diag": literal_eval(quiz[6]) }
-
+        args = {"ndes": id_, "code": answer, "args": literal_eval(quiz[4]), "resp": literal_eval(quiz[5]), "diag": literal_eval(quiz[6])}
         #response = lamb.invoke(FunctionName="Teste", InvocationType='RequestResponse', Payload=json.dumps(args))
         #feedback = response['Payload'].read()
         #feedback = json.loads(feedback).replace('"','')
@@ -147,7 +153,7 @@ def main():
             feedback = 'Sem erros.'
             result = 'OK!'
 
-        setUserQuiz(auth.username(), id, sent, feedback, result)
+        set_user_quiz(auth.username(), id, sent, feedback, result)
 
 
     if request.method == 'GET':
@@ -162,7 +168,7 @@ def main():
         username=auth.username()
         return render_template('index.html', username, challenges=challenges, p=p, msg=msg)
 
-    quiz = getQuiz(id, auth.username())
+    quiz = get_quiz(id, auth.username())
 
     if len(quiz) == 0:
         msg = "Oops... Desafio invalido!"
@@ -170,49 +176,52 @@ def main():
         username=auth.username()
         return render_template('index.html',username, challenges=challenges, p=p_n, msg=msg)
 
-    answers = getUserQuiz(auth.username(), id)
+    answers = get_user_quiz(auth.username(), id)
     username=auth.username()
-    return render_template('index.html', username, challenges=challenges, quiz=quiz[0], e=(sent > quiz[0][2]), answers=answers, p=p_n, msg=msg, expi = converteData(quiz[0][2]))
+    return render_template('index.html', username, challenges=challenges, quiz=quiz[0], e=(sent > quiz[0][2]), answers=answers, p=p_n, msg=msg, expi = converte_data(quiz[0][2]))
 
 @app.route('/pass', methods=['GET', 'POST'])
 @auth.login_required
 def change():
+    """Function change."""
     if request.method == 'POST':
         velha = request.form['old']
         nova = request.form['new']
         repet = request.form['again']
 
-        p = 1
+        points = 1
         msg = ''
         if nova != repet:
             msg = 'As novas senhas nao batem'
-            p = 3
-        elif getInfo(auth.username()) != hashlib.md5(velha.encode()).hexdigest():
+            points = 3
+        elif get_info(auth.username()) != hashlib.md5(velha.encode()).hexdigest():
             msg = 'A senha antiga nao confere'
-            p = 3
+            points = 3
         else:
-            setInfo(hashlib.md5(nova.encode()).hexdigest(), auth.username())
+            set_info(hashlib.md5(nova.encode()).hexdigest(), auth.username())
             msg = 'Senha alterada com sucesso'
-            p = 3
+            points = 3
     else:
         msg = ''
-        p = 3
+        points = 3
 
-    return render_template('index.html', username=auth.username(), challenges=getQuizes(auth.username()), p=p, msg=msg)
+    return render_template('index.html', username=auth.username(), challenges=get_quizes(auth.username()), points=points, msg=msg)
 
 
 @app.route('/logout')
 def logout():
+    """Function logout."""
     return render_template('index.html',p=2, msg="Logout com sucesso"), 401
 
 @auth.get_password
 def get_password(username):
-    return getInfo(username)
+    """Function get password."""
+    return get_info(username)
 
 @auth.hash_password
 def hash_pw(password):
+    """Function hash."""
     return hashlib.md5(password.encode()).hexdigest()
 
 if __name__ == '__main__':
     app.run(debug=True, host= '0.0.0.0', port=80)
-
