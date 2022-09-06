@@ -31,9 +31,9 @@ def lambda_handler(event):
         exec(code, locals())              
         test = []
         for index, arg in enumerate(args):
-            if not 'desafio{0}'.format(ndes) in locals():
+            if not f'desafio{ndes}' in locals():
                 return "Nome da função inválido. Usar 'def desafio{0}(...)'".format(ndes)            
-            if not_equals(literal_eval('desafio{0}(*arg)'.format(ndes)), resp[index]):
+            if not_equals(literal_eval(f'desafio{ndes}(*arg)'), resp[index]):
                 test.append(diag[index])
 
         return " ".join(test)
@@ -85,9 +85,7 @@ def get_quiz(id, user):
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
     if user in ('admin','fabioja'):
-        cursor.execute("SELECT id, release, expire, problem, tests,results, diagnosis, numb from QUIZ where id = {0}"
-        .format(id)
-        )
+        cursor.execute(f"SELECT id, release, expire, problem, tests,results, diagnosis, numb from QUIZ where id = {id}")
     else:
         cursor.execute("SELECT id, release, expire, problem, tests, results, diagnosis, numb from QUIZ where id = {0} and release < '{1}'"
         .format(id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -108,8 +106,8 @@ def get_info(user):
     """Function get info."""
     conn = sqlite3.connect(DBNAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT pass, type from USER where user = '{0}'".format(user))
-    print("SELECT pass, type from USER where user = '{0}'".format(user))
+    cursor.execute(f"SELECT pass, type from USER where user = '{user}'")
+    print(f"SELECT pass, type from USER where user = '{user}'")
     info = [reg[0] for reg in cursor.fetchall()]
     conn.close()
     if len(info) == 0:
@@ -142,7 +140,7 @@ def main():
         if sent > quiz[2]:
             msg = "Sorry... Prazo expirado!"       
         request_file = request.files['code']
-        filename = './upload/{0}-{1}.py'.format(auth.username(), sent)
+        filename = f'./upload/{auth.username()}-{sent}.py'
         request_file.save(filename)
         with open(filename,'r', encoding='utf8') as f_p:
             answer = f_p.read()       
